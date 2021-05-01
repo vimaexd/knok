@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>doorbell</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css' rel='stylesheet'>
+
+    <style>
+      body {
+        background-color: #0a0d11;
+        color: #fff;
+        font-family: "Inter";
+        margin: 0;
+      }
+
+      .supercenter {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      .twemoji { 
+        max-width: none;
+        width: 90px;
+      }
+
+      .swal2-container {
+        transform: scale(1.5);
+      }
+    </style>
+  </head>
+  <body class="text-white white bg-gradient-to-r from-purple-500 to-indigo-700">
+    <!-- this is an invisible character -->
+    <h1 dummy>⠀</h1>
+
+    <div class="absolute top-5 left-5">
+      <h1 id="time" class="font-black text-5xl">13:00:05</h1>
+    </div>
+
+    <div class="absolute bottom-5 left-5">
+      <h1 onclick="location.reload()" class="font-normal text-1xl">knok v1.0.2</h1>
+    </div>
+
+
+    <div id="state_notice">
+      <div class="scale-150 w-7/12 absolute top-1/2 left-1/2 -translate-x-2/4 -translate-y-2/4 transform">
+        <div class="flex justify-center">
+          <div class="flex items-center flex-row">
+            <div id="s_emoji" class="text-9xl">
+              <img draggable="false" class="twemoji" alt="🤖" src="https://twemoji.maxcdn.com/v/13.0.2/72x72/1f916.png">
+            </div>
+            <div class="m-5 object-right">
+              <h1 id="s_title" class="-ml-1 font-semibold text-8xl">Connecting...</h1>
+              <p id="s_description" class="text-1xl">
+                Connecting to server, please standby...
+              </p>
+            </div>
+          </div>
+        </div>
+        <div id="buttons" class="h-full" style="display: none;">
+          <div class="container m-auto h-full flex justify-center items-center">
+            <div onclick="knock(0)" class="shadow-2xl rounded-lg flex justify-center items-center m-auto h-64 text-5xl text-black bg-white p-14">
+              <h1 class="font-semibold">Knock</h1>
+            </div>
+            <div class="flex flex-col">
+              <div onclick="knock(1)" class="shadow-2xl mb-1 w-full rounded-lg flex justify-center items-center m-auto h-6 bg-white bg-opacity-10 pl-8 pr-8 pt-10 pb-10">
+                <h1 class="text-white text-3xl font-normal">
+                  <i class='bx bxs-virus'></i>
+                  COVID-19 test
+                </h1>
+              </div>
+              <div onclick="knock(2)" class="shadow-2xl mb-1 w-full rounded-lg flex justify-center items-center m-auto h-6 bg-white bg-opacity-10 pl-8 pr-8 pt-10 pb-10">
+                <h1 class="text-white text-3xl font-normal">
+                  <i class='bx bxs-food-menu'></i>
+                  Food ready!
+                </h1>
+              </div>
+              <div onclick="knock(3)" class="shadow-2xl mb-1 w-full rounded-lg flex justify-center items-center m-auto h-6 bg-white bg-opacity-10 pl-8 pr-8 pt-10 pb-10">
+                <h1 class="text-white text-3xl font-normal">
+                  <i class='bx bxs-message-alt-error' ></i>
+                  Urgent
+                </h1>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.10.4/dayjs.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://twemoji.maxcdn.com/v/latest/twemoji.min.js" crossorigin="anonymous"></script>
+    <script>
+      const _twemojiOpts = { className: "twemoji", folder: 'svg', ext: '.svg'}
+      twemoji.parse(document.body, _twemojiOpts)
+    </script>
+    <script>
+      const statuses = {
+        1: {
+          emoji: "😄",
+          title: "Available",
+          description: "Hey! I'm not inherently busy right now. Come in!",
+          showButtons: true
+        },
+        2: {
+          emoji: "🤔",
+          title: "Busy",
+          description: "Busy with various tasks, please avoid disturbing!",
+          showButtons: true
+        },
+        3: {
+          emoji: "😝",
+          title: "Streaming",
+          description: "Livestreaming right now, please only ring if necessary!",
+          showButtons: true
+        },
+        4: {
+          emoji: "😴",
+          title: "Sleeping!",
+          description: "I'm asleep right now and went to sleep at {{SLEEPTIME}}",
+          showButtons: false
+        },
+        5: {
+          emoji: "👋",
+          title: "Away",
+          description: "I'm not in right now, come back later!",
+          showButtons: false
+        }
+      }
+
+      const sock = new WebSocket(`ws://${location.hostname}:8069`)
+      sock.onmessage = function(event) {
+        const msg = JSON.parse(event.data)
+        switch(msg.op){
+          case 1:
+            setStatus(msg.d)
+            break;
+        }
+      };
+
+      function knock(action){
+        let message;
+        switch(action){
+          case 0:
+            message = "Someone's at the door!"
+            break
+          case 1:
+            message = "Time to do a COVID test"
+            break
+          case 2:
+            message = "Food's ready!"
+            break
+          case 3:
+            message = "[URGENT] Someone's at the door with an urgent message."
+            break
+        }
+
+        sock.send(JSON.stringify({"op":3, "d":{"status":1, "msg": message}}))
+        Swal.fire({
+          icon: 'success',
+          title: 'Knock sent!',
+          showConfirmButton: false,
+          timer: 1500
+        })
+      }
+
+      function setStatus(d){
+        let noticeData = statuses[d.status]
+
+        if(noticeData.showButtons) $("#buttons").show()
+        else $("#buttons").hide()
+
+        $("#s_emoji").html(twemoji.parse(noticeData.emoji, _twemojiOpts))
+        $("#s_title").html(noticeData.title)
+        $("#s_description").html(noticeData.description.replace("{{SLEEPTIME}}", d.sleepTime))
+      }
+
+      function updateTime(){
+        $("#time").html(dayjs().format('HH:mm:ss'))
+      }
+      updateTime()
+      setInterval(updateTime, 1000)
+    </script>
+  </body>
+</html>
